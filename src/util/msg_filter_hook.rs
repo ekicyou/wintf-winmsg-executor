@@ -18,8 +18,8 @@ where
 {
     /// # Safety
     ///
-    /// This function is safe as long as the returned handle is not leaked
-    /// or if the provided handler closure is `'static`.
+    /// This function is safe as long as the returned handle is not leaked, or
+    /// the provided handler closure is `'static`.
     pub unsafe fn register(handler: F) -> Self {
         assert!(MSG_FILTER_HOOK.get().is_null());
 

@@ -68,8 +68,8 @@ unsafe fn spawn_unchecked_lifetime<T>(future: impl Future<Output = T>) -> JoinHa
     let hwnd = EXECUTOR_WINDOW.with(|w| w.hwnd());
 
     // SAFETY: The `future` does not need to be `Send` because the thread that
-    // receives the runnable is our own, meaning the runniable is also dropped
-    // on original thread.
+    // receives the runnable is our own, meaning the runnable is also dropped
+    // on the original thread.
     let (runnable, task) = unsafe {
         async_task::spawn_unchecked(future, move |runnable: Runnable| {
             PostMessageA(hwnd, MSG_ID_WAKE, 0, runnable.into_raw().as_ptr() as _);
@@ -94,7 +94,7 @@ pub fn spawn_local<T>(future: impl Future<Output = T> + 'static) -> JoinHandle<T
     unsafe { spawn_unchecked_lifetime(future) }
 }
 
-/// Runs a future to completion on the calling threads message loop.
+/// Runs a future to completion on the calling thread's message loop.
 ///
 /// This runs the provided future on the current thread, blocking until it is
 /// complete. Also runs any tasks [`spawn`]ed from the same thread. Note that
@@ -104,8 +104,8 @@ pub fn spawn_local<T>(future: impl Future<Output = T> + 'static) -> JoinHandle<T
 /// # Panics
 ///
 /// Panics when quitting out of the message loop without the future being
-/// ready. This can happen when calling when the future or any spawned task
-/// calls the `PostQuitMessage()` winapi function.
+/// ready. This can happen when the future or any spawned task calls the
+/// `PostQuitMessage()` WinAPI function.
 pub fn block_on<'a, T: 'a>(future: impl Future<Output = T> + 'a) -> T {
     let msg_loop = &MessageLoop::new();
 
@@ -195,9 +195,10 @@ impl MessageLoop {
     /// handled. The first argument to the filter closure is the [`MessageLoop`]
     /// struct itself, which can be used to quit out of the message loop.
     ///
-    /// Like [`block_on`] this function runs any tasks [`spawn`]ed from the same
-    /// thread. Any spawned tasks will be suspended when the `run_message_loop`
-    /// returns. Be careful not to drop messages not belonging to a window you
+    /// Like [`block_on`], this function runs any tasks [`spawn`]ed from the
+    /// same thread. Any spawned tasks will be suspended when `run_message_loop`
+    /// returns.
+    /// Be careful not to drop messages not belonging to a window you
     /// control or you might risk suspending a task indefinitely when dropping
     /// its wake message.
     ///
@@ -207,6 +208,7 @@ impl MessageLoop {
     /// # Panics and Reentrancy
     ///
     /// Panics when called from within another `run_message_loop` filter closure.
+    ///
     /// A call to [`block_on()`] from within the filter closure creates a nested
     /// message loop which causes the filter closure to be reentered when a modal
     /// window is open.
@@ -224,9 +226,9 @@ impl MessageLoop {
             MsgFilterHook::register(|msg| {
                 panic::catch_unwind(AssertUnwindSafe(|| {
                     let filter_result = filter(&msg_loop, msg);
-                    // When quit() was called it has no real effect because we
+                    // When `quit()` is called, it has no real effect because we
                     // are running in a modal loop. Post a quit message to exit
-                    // the message loop that is not under our control ASAP.
+                    // the modal message loop to store the panic payload.
                     if msg_loop.quit.get() {
                         PostMessageA(msg.hwnd, WM_QUIT, 0, 0);
                     }
@@ -281,7 +283,7 @@ mod test {
             post_thread_message(WM_USER + i);
         }
         MessageLoop::run(|msg_loop, msg| {
-            // This is the only ever message we observe becasue we quit the
+            // This is the only message we observe because we quit the
             // loop right after it is received.
             assert_eq!(msg.message, WM_USER);
             msg_loop.quit();
@@ -415,6 +417,9 @@ mod test {
         });
     }
 
+    // This test does not actually expect the library to panic.
+    // The panic is rather an convenient way to signal if the filter closure is
+    // reentered (which is the expected behaviour).
     #[test]
     #[should_panic]
     fn reenter_filter_closure_panic() {

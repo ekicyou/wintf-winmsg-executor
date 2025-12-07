@@ -13,7 +13,7 @@ use windows_sys::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
 // https://github.com/rust-windowing/winit/blob/v0.30.0/src/platform_impl/windows/util.rs#L140
 fn get_instance_handle() -> HINSTANCE {
     // Gets the instance handle by taking the address of the
-    // pseudo-variable created by the microsoft linker:
+    // pseudo-variable created by the Microsoft linker:
     // https://devblogs.microsoft.com/oldnewthing/20041025-00/?p=37483
 
     // This is preferred over GetModuleHandle(NULL) because it also works in DLLs:
@@ -68,7 +68,7 @@ pub enum WindowType {
     TopLevel,
 
     /// [Message-Only Windows] are useful for windows that do not need to be
-    /// visible nor need access to broadcast messages from the desktop.
+    /// visible and do not need access to broadcast messages from the desktop.
     ///
     /// [Message-Only Windows]:
     /// https://learn.microsoft.com/en-us/windows/win32/winmsg/window-features#message-only-windows
@@ -89,10 +89,10 @@ impl<S> Window<S> {
     /// Creates a new window with a `wndproc` closure.
     ///
     /// The `state` parameter will be allocated alongside the closure. It is
-    /// meant as a convenient alternative to `Rc<State>` to access to variables
-    /// from both inside and outside of the closure. A pinned reference to the
-    /// state is passed as first parameter the closure. Use [`Window::state()`]
-    /// to access the state from the outside.
+    /// meant as a convenient alternative to `Rc<State>` to access variables
+    /// from both inside and outside the closure. A pinned reference to the
+    /// state is passed as the first parameter to the closure.
+    /// Use [`Window::state()`] to access the state from the outside.
     pub fn new<F>(
         window_type: WindowType,
         state: S,
@@ -136,9 +136,9 @@ impl<S> Window<S> {
                 },
                 ptr::null_mut(),
                 get_instance_handle(),
-                // The subclass info can be passed as a pointer to the stack
-                // allocated variable because it will only be accessed during
-                // the `CreateWindowExA()` call and not afterward.
+                // The subclass info can be passed as a pointer to the
+                // stack-allocated variable because it will only be accessed
+                // during the `CreateWindowExA()` call and not afterwards.
                 ptr::from_ref(&subclassinfo).cast(),
             )
         };
@@ -170,7 +170,7 @@ impl<S> Window<S> {
             // Detect when `wndproc` is re-entered, which can happen when the user
             // provided handler creates a modal dialog (e.g., a popup-menu). Rust rules
             // do not allow us to create a second mutable reference to the user-provided
-            // handler. Run the default windows procedure instead.
+            // handler. Run the default window procedure instead.
             let mut wndproc = wndproc.try_borrow_mut().ok()?;
             wndproc(state, msg)
         })
@@ -180,7 +180,7 @@ impl<S> Window<S> {
         unsafe { &*(GetWindowLongPtrA(self.hwnd, GWLP_USERDATA) as *const _) }
     }
 
-    /// Returns this windows raw window handle.
+    /// Returns this window's raw window handle.
     pub fn hwnd(&self) -> HWND {
         self.hwnd
     }
