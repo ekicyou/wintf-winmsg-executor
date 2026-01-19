@@ -2,12 +2,12 @@
 name = "winmsg-executor"
 description = "Per-thread async rust executor for windows"
 repository = "https://github.com/timokroeger/winmsg-executor"
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 license = "MIT/Apache-2.0"
 
 [dependencies]
-async-task = "4.7"
+async-task = "4.7.1"
 windows-sys = { version = "0.61.2", features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
