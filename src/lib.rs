@@ -10,7 +10,7 @@ use std::{
     panic::{self, AssertUnwindSafe},
     pin::{pin, Pin},
     ptr::{self, NonNull},
-    task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+    task::{Context, Poll, Waker},
 };
 
 use async_task::Runnable;
@@ -126,19 +126,10 @@ pub fn block_on<'a, T: 'a>(future: impl Future<Output = T> + 'a) -> T {
 }
 
 fn poll_ready<T>(future: impl Future<Output = T>) -> Result<T, ()> {
-    // TODO: wait for https://github.com/rust-lang/rust/issues/98286 to land.
-    const NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(
-        |_| RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE),
-        |_| (),
-        |_| (),
-        |_| (),
-    );
-    let noop_waker = unsafe { Waker::from_raw(RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE)) };
     let future = pin!(future);
-    if let Poll::Ready(result) = future.poll(&mut Context::from_waker(&noop_waker)) {
-        Ok(result)
-    } else {
-        Err(())
+    match future.poll(&mut Context::from_waker(Waker::noop())) {
+        Poll::Ready(result) => Ok(result),
+        Poll::Pending => Err(()),
     }
 }
 
