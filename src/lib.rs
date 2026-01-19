@@ -160,6 +160,8 @@ impl MessageLoop {
     }
 
     fn run_loop(&self, filter: impl Fn(&MSG) -> FilterResult) {
+        let executor_hwnd = EXECUTOR_WINDOW.with(|ew| ew.hwnd());
+
         while !self.quit.get() {
             unsafe {
                 let mut msg = MaybeUninit::uninit();
@@ -168,10 +170,13 @@ impl MessageLoop {
                 }
                 let msg = msg.assume_init();
 
-                if filter(&msg) == FilterResult::Forward {
+                // Do not allow the filter to drop our wake messages.
+                let is_wake_message = msg.hwnd == executor_hwnd && msg.message == MSG_ID_WAKE;
+                if is_wake_message || filter(&msg) == FilterResult::Forward {
                     TranslateMessage(&msg);
                     DispatchMessageA(&msg);
                 }
+
                 if let Some(panic_payload) = PANIC_PAYLOAD.take() {
                     panic::resume_unwind(panic_payload)
                 }
@@ -544,6 +549,41 @@ mod test {
 
             running_filter_closure.set(false);
             FilterResult::Forward
+        });
+    }
+
+    #[test]
+    fn disallow_wake_message_filtering() {
+        let msg_loop = MessageLoop::new();
+        let msg_loop = Box::leak(Box::new(msg_loop));
+
+        // `MSG_ID_WAKE` message for the custom should be filtered by the run loop filter below.
+        let custom_wnd = Window::new(WindowType::MessageOnly, (), |_, msg| {
+            assert_ne!(msg.msg, MSG_ID_WAKE);
+            None
+        })
+        .unwrap();
+        unsafe {
+            PostMessageA(custom_wnd.hwnd(), MSG_ID_WAKE, 0, 0);
+        }
+
+        // Spawn a task to ensure that the executor window also has a wake message,
+        // which must not be filtered.
+        spawn_local(async {
+            yield_now().await;
+            yield_now().await;
+            yield_now().await;
+            msg_loop.quit();
+        });
+
+        msg_loop.run_loop(|msg| {
+            // This test is to ensure that this callback is not even called for internal wake messages.
+            if msg.message == MSG_ID_WAKE {
+                assert_ne!(msg.hwnd, EXECUTOR_WINDOW.with(|ew| ew.hwnd()));
+                FilterResult::Drop
+            } else {
+                FilterResult::Forward
+            }
         });
     }
 }
