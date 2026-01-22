@@ -42,7 +42,7 @@ thread_local! {
 
 /// An owned permission to join on a task (await its termination).
 ///
-/// If a `JoinHandle` is dropped, then its task continues running in the
+/// If a `JoinHandle` is dropped, the task continues running in the
 /// background and its return value is lost.
 pub struct JoinHandle<T> {
     task: ManuallyDrop<async_task::Task<T>>,
@@ -86,9 +86,9 @@ unsafe fn spawn_unchecked_lifetime<T>(future: impl Future<Output = T>) -> JoinHa
 
 /// Spawns a new future on the current thread.
 ///
-/// This function may be used to spawn tasks when the message loop is not
-/// running. The provided future will start running once the message loop
-/// is entered with [`block_on`] or [`MessageLoop::run`].
+/// This function may be used to spawn tasks when the message loop is not running.
+/// The provided future starts running once the message loop is entered with
+/// [`block_on()`] or [`MessageLoop::run()`].
 pub fn spawn_local<T>(future: impl Future<Output = T> + 'static) -> JoinHandle<T> {
     // SAFETY: future is `'static`
     unsafe { spawn_unchecked_lifetime(future) }
@@ -96,15 +96,15 @@ pub fn spawn_local<T>(future: impl Future<Output = T> + 'static) -> JoinHandle<T
 
 /// Runs a future to completion on the calling thread's message loop.
 ///
-/// This runs the provided future on the current thread, blocking until it is
-/// complete. Also runs any tasks [`spawn`]ed from the same thread. Note that
-/// any spawned tasks will be suspended after `block_on` returns. Calling
-/// `block_on` again will resume previously spawned tasks.
+/// Runs the provided future on the current thread, blocking until it completes.
+/// Any tasks spawned from the same thread using [`spawn_local()`] also run concurrently.
+/// Note that all spawned tasks are suspended after [`block_on()`] returns.
+/// Calling [`block_on()`] again resumes the spawned tasks.
 ///
 /// # Panics
 ///
-/// Panics when quitting out of the message loop without the future being
-/// ready. This can happen when the future or any spawned task calls the
+/// Panics if the message loop quits before the future completes.
+/// This can happen when the future or any spawned task calls the
 /// `PostQuitMessage()` WinAPI function.
 pub fn block_on<'a, T: 'a>(future: impl Future<Output = T> + 'a) -> T {
     let msg_loop = &MessageLoop::new();
@@ -145,8 +145,8 @@ pub enum FilterResult {
 
 /// Abstract representation of a message loop.
 ///
-/// Not directly constructible, use [`MessageLoop::run`] to create a message
-/// loop. The message loop struct is used to control the message loop behavior
+/// Not directly constructible. Use [`MessageLoop::run`] to create a message
+/// loop. The message loop struct is used to control message loop behavior
 /// by passing it as an argument to the filter closure of [`MessageLoop::run`].
 pub struct MessageLoop {
     quit: Cell<bool>,
@@ -184,30 +184,25 @@ impl MessageLoop {
         }
     }
 
-    /// Runs the message loop with a filter closure to inspect and drop messages
-    /// before they are dispatched to their respective window procedure.
+    /// Runs the message loop with a filter closure to inspect and drop messages before
+    /// they are dispatched to their respective window procedures.
     ///
-    /// Use the [`FilterResult`] return value to control how the message is
-    /// handled. The first argument to the filter closure is the [`MessageLoop`]
-    /// struct itself, which can be used to quit out of the message loop.
+    /// Use the [`FilterResult`] return value to control how the message is handled.
+    /// The first argument to the filter closure is the [`MessageLoop`] struct itself,
+    /// which can be used to quit the message loop.
     ///
-    /// Like [`block_on`], this function runs any tasks [`spawn`]ed from the
-    /// same thread. Any spawned tasks will be suspended when `run_message_loop`
-    /// returns.
-    /// Be careful not to drop messages not belonging to a window you
-    /// control or you might risk suspending a task indefinitely when dropping
-    /// its wake message.
+    /// Like [`block_on()`], this function runs any tasks spawned from the same thread
+    /// using [`spawn_local()`]. All tasks are suspended when this function returns.
     ///
-    /// `run_message_loop` installs a [`WH_MSGFILTER`] hook to allow inspections
-    /// of messages while modal windows are open.
+    /// Installs a [`WH_MSGFILTER`] hook to allow inspection of messages while modal
+    /// windows are open.
     ///
     /// # Panics and Reentrancy
     ///
-    /// Panics when called from within another `run_message_loop` filter closure.
+    /// Panics if called from within another [`MessageLoop::run()`] filter closure.
     ///
-    /// A call to [`block_on()`] from within the filter closure creates a nested
-    /// message loop which causes the filter closure to be reentered when a modal
-    /// window is open.
+    /// A call to [`block_on()`] from within the filter closure creates a nested message
+    /// loop, which causes the filter closure to be re-entered when a modal window is open.
     ///
     /// [`WH_MSGFILTER`]: (https://learn.microsoft.com/en-us/windows/win32/winmsg/about-hooks#wh_msgfilter-and-wh_sysmsgfilter)
     pub fn run(filter: impl Fn(&MessageLoop, &MSG) -> FilterResult) {
