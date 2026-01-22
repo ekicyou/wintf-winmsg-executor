@@ -89,7 +89,19 @@ unsafe fn spawn_unchecked_lifetime<T>(future: impl Future<Output = T>) -> JoinHa
 /// This function may be used to spawn tasks when the message loop is not running.
 /// The provided future starts running once the message loop is entered with
 /// [`block_on()`] or [`MessageLoop::run()`].
-pub fn spawn_local<T>(future: impl Future<Output = T> + 'static) -> JoinHandle<T> {
+///
+/// # Examples
+///
+/// This example is a compile-time test to ensure that we only accept `'static`
+/// return types to prevent <https://github.com/rust-lang/rust/issues/84366>.
+///
+/// ```compile_fail
+/// fn test_fn<'a>() {
+///     let closure = || -> &'a str { "" };
+///     winmsg_executor::spawn_local(async move { closure() });
+/// }
+/// ```
+pub fn spawn_local<T: 'static>(future: impl Future<Output = T> + 'static) -> JoinHandle<T> {
     // SAFETY: future is `'static`
     unsafe { spawn_unchecked_lifetime(future) }
 }
