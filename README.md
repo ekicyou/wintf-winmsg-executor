@@ -1,8 +1,11 @@
-# `winmsg-executor`
+# `wintf-winmsg-executor`
 
-[![Crates.io](https://img.shields.io/crates/v/winmsg-executor)](https://crates.io/crates/winmsg-executor)
-![Crates.io License](https://img.shields.io/crates/l/winmsg-executor)
-[![docs.rs](https://img.shields.io/docsrs/winmsg-executor)](https://docs.rs/winmsg-executor)
+[![Crates.io](https://img.shields.io/crates/v/wintf-winmsg-executor)](https://crates.io/crates/wintf-winmsg-executor)
+![Crates.io License](https://img.shields.io/crates/l/wintf-winmsg-executor)
+[![docs.rs](https://img.shields.io/docsrs/wintf-winmsg-executor)](https://docs.rs/wintf-winmsg-executor)
+
+> **Fork notice**: This crate is a fork of [`winmsg-executor`](https://github.com/timokroeger/winmsg-executor) by Timo Kröger, maintained with small convenience improvements.
+> Reference documentation for the original API: <https://docs.rs/winmsg-executor/0.3.2/winmsg_executor/>.
 
 Per-thread async Rust executor for Windows.
 Each task is backed by a [message-only window][1].
