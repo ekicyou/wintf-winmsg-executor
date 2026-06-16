@@ -1,5 +1,5 @@
 use std::{cell::Cell, marker::PhantomData, ptr};
-use windows_sys::Win32::{
+use windows::Win32::{
     Foundation::*, System::Threading::GetCurrentThreadId, UI::WindowsAndMessaging::*,
 };
 
@@ -25,12 +25,13 @@ where
 
         MSG_FILTER_HOOK.set(Box::into_raw(Box::new(handler)) as *mut ());
 
-        let handle = SetWindowsHookExA(
+        let handle = SetWindowsHookExW(
             WH_MSGFILTER,
             Some(hook_proc::<F>),
-            ptr::null_mut(),
+            None,
             GetCurrentThreadId(),
-        );
+        )
+        .unwrap();
         Self {
             handle,
             _lifetime_and_type: PhantomData,
@@ -41,7 +42,7 @@ where
 impl<F> Drop for MsgFilterHook<'_, F> {
     fn drop(&mut self) {
         unsafe {
-            UnhookWindowsHookEx(self.handle);
+            let _ = UnhookWindowsHookEx(self.handle);
             drop(Box::from_raw(
                 MSG_FILTER_HOOK.replace(ptr::null_mut()) as *mut F
             ));
@@ -54,10 +55,10 @@ where
     F: Fn(&MSG) -> bool,
 {
     let f = &*(MSG_FILTER_HOOK.get() as *mut F);
-    let msg = &*(lparam as *const MSG);
+    let msg = &*(lparam.0 as *const MSG);
     if f(msg) {
-        1
+        LRESULT(1)
     } else {
-        CallNextHookEx(ptr::null_mut(), code, wparam, lparam)
+        CallNextHookEx(None, code, wparam, lparam)
     }
 }
