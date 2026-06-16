@@ -57,7 +57,8 @@
 - **フォーク元**: [timokroeger/winmsg-executor](https://github.com/timokroeger/winmsg-executor)（`Cargo.toml` の `repository` も上流を指す）。
 - **正典ドキュメント**: [docs.rs v0.3.2](https://docs.rs/winmsg-executor/0.3.2/winmsg_executor/)。公開 API（`spawn_local` / `block_on` / `MessageLoop` / `JoinHandle` / `FilterResult` / `util`）の挙動・契約はこれを基本記録とする。
 - **公開 crate 化の留意点**: 小規模改修を前提に、公開 API の安定性・後方互換性を重視する。crates.io 公開時は version 採番（SemVer）と `cargo publish` 前の `cargo test` / `cargo doc` 通過を確認する。
+- **Win32 バインディング本家**: [microsoft/windows-rs](https://github.com/microsoft/windows-rs)。`windows`（"Safer bindings"）と `windows-sys`（"Raw bindings"）を提供。リリースは通し番号（最新 **release 73**、2026-02-17）で、各クレートは独立 SemVer（`windows` 本体の crates.io 最新は **0.62.2**、release 73 時点で据え置き）。ウィンドウ生成・ウィンドウプロシージャ・メッセージループの実装例は [create_window サンプル](https://github.com/microsoft/windows-rs/tree/master/crates/samples/windows/create_window)。
 
 ---
 _Document standards and patterns, not every dependency_
-_updated_at: 2026-06-16 — 上流・参照ドキュメント・公開 crate 化の留意点を追記_
+_updated_at: 2026-06-16 — windows-rs 公式リポジトリ（release 73 / create_window サンプル）への参照を追記_
