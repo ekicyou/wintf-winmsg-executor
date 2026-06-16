@@ -1,10 +1,20 @@
 [package]
-name = "winmsg-executor"
-description = "Per-thread async rust executor for windows"
-repository = "https://github.com/timokroeger/winmsg-executor"
-version = "0.3.2"
+name = "wintf-winmsg-executor"
+description = "Per-thread async executor for Windows (fork of winmsg-executor)"
+repository = "https://github.com/ekicyou/wintf-winmsg-executor"
+version = "0.0.1"
 edition = "2021"
-license = "MIT/Apache-2.0"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+keywords = ["windows", "async", "executor", "winapi", "message-loop"]
+categories = ["asynchronous", "os::windows-apis"]
+include = [
+    "src/**/*.rs",
+    "examples/**/*.rs",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
+]
 
 [dependencies]
 async-task = { version = "4.7.1", default-features = false }

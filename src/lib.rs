@@ -98,7 +98,7 @@ unsafe fn spawn_unchecked_lifetime<T>(future: impl Future<Output = T>) -> JoinHa
 /// ```compile_fail
 /// fn test_fn<'a>() {
 ///     let closure = || -> &'a str { "" };
-///     winmsg_executor::spawn_local(async move { closure() });
+///     wintf_winmsg_executor::spawn_local(async move { closure() });
 /// }
 /// ```
 pub fn spawn_local<T: 'static>(future: impl Future<Output = T> + 'static) -> JoinHandle<T> {

@@ -101,7 +101,7 @@ impl<S> Window<S> {
     where
         F: Fn(Pin<&S>, WindowMessage) -> Option<LRESULT> + 'static,
     {
-        let class_name = c"winmsg-executor".as_ptr().cast();
+        let class_name = c"wintf-winmsg-executor".as_ptr().cast();
 
         // A class must only be unregistered when it was registered from a DLL which
         // is unloaded during program execution: For now, an unsupported use case.

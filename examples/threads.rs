@@ -1,6 +1,6 @@
 use std::{future::poll_fn, task::Poll, thread};
 
-use winmsg_executor::block_on;
+use wintf_winmsg_executor::block_on;
 
 async fn poll_n_times(mut n_poll: usize) {
     poll_fn(|cx| {
