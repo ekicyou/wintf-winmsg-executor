@@ -31,7 +31,7 @@
   - _Depends: 1_
 
 - [ ] 3. executor コアの移行
-- [ ] 3.1 メッセージループと spawn・wake の移行
+- [x] 3.1 メッセージループと spawn・wake の移行
   - executor ウィンドウ・メッセージループ・タスク spawn・wake 投函を `windows` newtype・W 系 API へ移行する
   - schedule クロージャがウィンドウハンドルをキャプチャする箇所から着手し、`Send`/`Sync` 境界エラーが出ないことを `cargo check` で確認する（万一出た場合はハンドルを `Send` 可能な表現へ退避するラッパーを検討する）
   - メッセージ取得の三値判定（終了メッセージ判定）と、executor 宛て wake メッセージをユーザーのフィルタで drop させないガードを維持する
@@ -56,3 +56,6 @@
   - _Requirements: 1.4, 2.2, 3.1, 3.2, 3.3, 3.4, 7.5_
   - _Boundary: crate全体 / 統合検証_
   - _Depends: 2.1, 2.2, 3.2_
+
+## Implementation Notes
+- 3.1: `cargo build` がクリーン通過し、`spawn_unchecked` の `HWND`(!Send) キャプチャは Send 境界エラーなくコンパイルされた（5.1 確定、Send ラッパー不要）。lib.rs 本体移行後に残る unused import 警告（`ptr::self` / `HWND`）は test mod でのみ使われるため、3.2 で消費される。

@@ -15,7 +15,10 @@ use std::{
 
 use async_task::Runnable;
 use util::{Window, WindowType};
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use windows::Win32::{
+    Foundation::{HWND, LPARAM, LRESULT, WPARAM},
+    UI::WindowsAndMessaging::*,
+};
 
 use crate::util::MsgFilterHook;
 
@@ -26,13 +29,13 @@ thread_local! {
     static EXECUTOR_WINDOW: Window<()> = Window::new(WindowType::MessageOnly, (), |_, msg| {
         if msg.msg == MSG_ID_WAKE {
             let runnable = unsafe {
-                let runnable_ptr = NonNull::new_unchecked(msg.lparam as *mut _);
+                let runnable_ptr = NonNull::new_unchecked(msg.lparam.0 as *mut _);
                 Runnable::<()>::from_raw(runnable_ptr)
             };
             if let Err(panic_payload) = panic::catch_unwind(|| runnable.run()) {
                 PANIC_PAYLOAD.set(Some(panic_payload));
             }
-            Some(0)
+            Some(LRESULT(0))
         } else {
             None
         }
@@ -72,7 +75,12 @@ unsafe fn spawn_unchecked_lifetime<T>(future: impl Future<Output = T>) -> JoinHa
     // on the original thread.
     let (runnable, task) = unsafe {
         async_task::spawn_unchecked(future, move |runnable: Runnable| {
-            PostMessageA(hwnd, MSG_ID_WAKE, 0, runnable.into_raw().as_ptr() as _);
+            let _ = PostMessageW(
+                Some(hwnd),
+                MSG_ID_WAKE,
+                WPARAM(0),
+                LPARAM(runnable.into_raw().as_ptr() as _),
+            );
         })
     };
 
@@ -177,7 +185,7 @@ impl MessageLoop {
         while !self.quit.get() {
             unsafe {
                 let mut msg = MaybeUninit::uninit();
-                if GetMessageA(msg.as_mut_ptr(), ptr::null_mut(), 0, 0) == 0 {
+                if GetMessageW(msg.as_mut_ptr(), None, 0, 0).0 == 0 {
                     return;
                 }
                 let msg = msg.assume_init();
@@ -185,8 +193,8 @@ impl MessageLoop {
                 // Do not allow the filter to drop our wake messages.
                 let is_wake_message = msg.hwnd == executor_hwnd && msg.message == MSG_ID_WAKE;
                 if is_wake_message || filter(&msg) == FilterResult::Forward {
-                    TranslateMessage(&msg);
-                    DispatchMessageA(&msg);
+                    let _ = TranslateMessage(&msg);
+                    DispatchMessageW(&msg);
                 }
 
                 if let Some(panic_payload) = PANIC_PAYLOAD.take() {
@@ -233,7 +241,7 @@ impl MessageLoop {
                     // are running in a modal loop. Post a quit message to exit
                     // the modal message loop to store the panic payload.
                     if msg_loop.quit.get() {
-                        PostMessageA(msg.hwnd, WM_QUIT, 0, 0);
+                        let _ = PostMessageW(Some(msg.hwnd), WM_QUIT, WPARAM(0), LPARAM(0));
                     }
                     filter_result == FilterResult::Drop
                 }))
@@ -242,7 +250,7 @@ impl MessageLoop {
                         panic_payload.set(Some(payload));
                     });
                     // Also exit the modal loop ASAP when a panic occurs.
-                    PostMessageA(msg.hwnd, WM_QUIT, 0, 0);
+                    let _ = PostMessageW(Some(msg.hwnd), WM_QUIT, WPARAM(0), LPARAM(0));
                     false
                 })
             })
