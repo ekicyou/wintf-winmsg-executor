@@ -36,7 +36,7 @@ use std::{cell::Cell, future::Future, pin::pin};
 
 // 外部 crate
 use async_task::Runnable;
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
+use windows::Win32::UI::WindowsAndMessaging::*;
 
 // crate 内（util など）
 use crate::util::MsgFilterHook;
