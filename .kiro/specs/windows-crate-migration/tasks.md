@@ -4,7 +4,7 @@
 >
 > **Deferred**: 6.2 — `README`/steering の改訂は移行に伴う最小限にとどめる制約。本 spec では steering/README 本体を改訂せず、移行完了後の最小限の記述更新を `kiro-complete` フェーズに委譲する。
 
-- [ ] 1. 依存クレートと feature の差し替え
+- [x] 1. 依存クレートと feature の差し替え
   - `windows-sys` 依存を除去し、`windows` 0.62 系を追加する
   - 使用する Win32 モジュール単位で features を宣言する（Foundation / UI WindowsAndMessaging / System Threading / Graphics Gdi）
   - Graphics Gdi はウィンドウクラス登録（`WNDCLASSW`/`RegisterClassW`）がゲートするため維持する
