@@ -101,6 +101,24 @@ impl<S> Window<S> {
     where
         F: Fn(Pin<&S>, WindowMessage) -> Option<LRESULT> + 'static,
     {
+        Self::new_ex(window_type, 0, state, wndproc)
+    }
+
+    /// Same as [`Window::new()`] but allows specifying extended window styles
+    /// (the `dwExStyle` parameter of `CreateWindowExA`), such as
+    /// [`WS_EX_NOREDIRECTIONBITMAP`].
+    ///
+    /// [`WS_EX_NOREDIRECTIONBITMAP`]:
+    /// https://learn.microsoft.com/en-us/windows/win32/winmsg/extended-window-styles
+    pub fn new_ex<F>(
+        window_type: WindowType,
+        ex_style: WINDOW_EX_STYLE,
+        state: S,
+        wndproc: F,
+    ) -> Result<Self, WindowCreationError>
+    where
+        F: Fn(Pin<&S>, WindowMessage) -> Option<LRESULT> + 'static,
+    {
         let class_name = c"wintf-winmsg-executor".as_ptr().cast();
 
         // A class must only be unregistered when it was registered from a DLL which
@@ -122,7 +140,7 @@ impl<S> Window<S> {
 
         let hwnd = unsafe {
             CreateWindowExA(
-                0,
+                ex_style,
                 class_name,
                 ptr::null(),
                 0,
@@ -165,8 +183,23 @@ impl<S> Window<S> {
     where
         F: FnMut(Pin<&S>, WindowMessage) -> Option<LRESULT> + 'static,
     {
+        Self::new_checked_ex(window_type, 0, state, wndproc)
+    }
+
+    /// Same as [`Window::new_checked()`] but allows specifying extended window
+    /// styles (the `dwExStyle` parameter), such as `WS_EX_NOREDIRECTIONBITMAP`.
+    /// See [`Window::new_ex()`].
+    pub fn new_checked_ex<F>(
+        window_type: WindowType,
+        ex_style: WINDOW_EX_STYLE,
+        state: S,
+        wndproc: F,
+    ) -> Result<Self, WindowCreationError>
+    where
+        F: FnMut(Pin<&S>, WindowMessage) -> Option<LRESULT> + 'static,
+    {
         let wndproc = RefCell::new(wndproc);
-        Self::new(window_type, state, move |state, msg| {
+        Self::new_ex(window_type, ex_style, state, move |state, msg| {
             // Detect when `wndproc` is re-entered, which can happen when the user
             // provided handler creates a modal dialog (e.g., a popup-menu). Rust rules
             // do not allow us to create a second mutable reference to the user-provided
