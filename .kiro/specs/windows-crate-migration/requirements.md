@@ -81,3 +81,13 @@
 #### Acceptance Criteria
 1. Where 公開型（`WindowMessage` のフィールド型等）が `windows-sys` 型から `windows` 型へ変わる場合, the 移行作業 shall その変更が SemVer 上の破壊的変更となり得ることを文書化する。
 2. The 移行作業 shall README / steering への改訂を、移行に伴う最小限の記述更新の範囲にとどめる。
+
+### Requirement 7: 実装ガイドラインの遵守（karpathy-guidelines）
+**Objective:** 保守担当者として、移行実装を外科的かつ最小限に保ちたい。不要なコメント・行数の肥大を避け、差分の追跡性とレビュー容易性を確保するためである。
+
+#### Acceptance Criteria
+1. The 移行実装 shall `karpathy-guidelines` スキルの行動指針（Think Before Coding / Simplicity First / Surgical Changes / Goal-Driven Execution）に従う。
+2. The 移行実装 shall 移行に直接必要な範囲を超えてコメントを追加・拡張しない。ただし `unsafe` ブロックの SAFETY コメント慣習（Requirement 4-6）は維持し、API 名変更等でコメントが事実と乖離する場合の最小限の修正は許容する。
+3. The 移行実装 shall 移行に直接起因しない隣接コードのリファクタリング・再整形・「改善」を行わず、既存のコードスタイルに合わせる。
+4. Where windows のイディオム（`?` 演算子・`.into()`・RAII 等）により意味論を変えずに行数を削減できる場合, the 移行実装 shall それを優先する。
+5. The 移行実装 shall 変更後の各行が移行要件に直接トレースできる状態を保ち、自身の変更が生んだ未使用の import・要素のみを除去する。
