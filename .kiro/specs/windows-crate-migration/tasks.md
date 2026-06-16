@@ -13,7 +13,7 @@
   - _Boundary: Cargo.toml_
 
 - [ ] 2. Win32 ヘルパー層の移行
-- [ ] 2.1 (P) ウィンドウ生成補助と公開型の移行
+- [x] 2.1 (P) ウィンドウ生成補助と公開型の移行
   - ウィンドウ生成・破棄の RAII、ウィンドウプロシージャ補助、および公開型を `windows` newtype・W 系 API・`Result` へ移行する
   - NULL を取り得るハンドル引数を `windows` のハンドル型表現（`Option`/`Default`）で表し、固定文字列を W 系文字列マクロで表す
   - 公開型が `windows` newtype（生整数へアンラップしない）へ変わった旨を、該当する公開要素の doc comment に記載する（SemVer 影響の文書化）

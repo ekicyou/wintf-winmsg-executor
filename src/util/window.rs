@@ -7,7 +7,8 @@ use std::{
     sync::Once,
 };
 
-use windows_sys::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
+use windows::core::w;
+use windows::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
 
 // Taken from:
 // https://github.com/rust-windowing/winit/blob/v0.30.0/src/platform_impl/windows/util.rs#L140
@@ -22,7 +23,7 @@ fn get_instance_handle() -> HINSTANCE {
     extern "C" {
         static __ImageBase: u8;
     }
-    unsafe { ptr::from_ref(&__ImageBase) as _ }
+    HINSTANCE(ptr::from_ref(unsafe { &__ImageBase }) as _)
 }
 
 struct SubClassInformation {
@@ -33,6 +34,10 @@ struct SubClassInformation {
 }
 
 /// Wrapper for the arguments to the [`WNDPROC callback function`](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nc-winuser-wndproc).
+///
+/// The `hwnd`/`wparam`/`lparam` fields are now `windows` crate newtypes
+/// (`HWND`/`WPARAM`/`LPARAM`), a SemVer-breaking change from the previous
+/// `windows-sys` raw integer/pointer types.
 #[derive(Debug, Clone)]
 pub struct WindowMessage {
     pub hwnd: HWND,
@@ -58,7 +63,7 @@ pub struct Window<S> {
 
 impl<S> Drop for Window<S> {
     fn drop(&mut self) {
-        unsafe { DestroyWindow(self.hwnd) };
+        let _ = unsafe { DestroyWindow(self.hwnd) };
     }
 }
 
@@ -101,7 +106,7 @@ impl<S> Window<S> {
     where
         F: Fn(Pin<&S>, WindowMessage) -> Option<LRESULT> + 'static,
     {
-        Self::new_ex(window_type, 0, state, wndproc)
+        Self::new_ex(window_type, WINDOW_EX_STYLE(0), state, wndproc)
     }
 
     /// Same as [`Window::new()`] but allows specifying extended window styles
@@ -119,17 +124,17 @@ impl<S> Window<S> {
     where
         F: Fn(Pin<&S>, WindowMessage) -> Option<LRESULT> + 'static,
     {
-        let class_name = c"wintf-winmsg-executor".as_ptr().cast();
+        let class_name = w!("wintf-winmsg-executor");
 
         // A class must only be unregistered when it was registered from a DLL which
         // is unloaded during program execution: For now, an unsupported use case.
         static CLASS_REGISTRATION: Once = Once::new();
         CLASS_REGISTRATION.call_once(|| {
-            let mut wnd_class: WNDCLASSA = unsafe { std::mem::zeroed() };
+            let mut wnd_class: WNDCLASSW = unsafe { std::mem::zeroed() };
             wnd_class.lpfnWndProc = Some(wndproc_setup);
             wnd_class.hInstance = get_instance_handle();
             wnd_class.lpszClassName = class_name;
-            unsafe { RegisterClassA(&wnd_class) };
+            unsafe { RegisterClassW(&wnd_class) };
         });
 
         // Pass the closure and state as user data to our typed window process.
@@ -139,30 +144,28 @@ impl<S> Window<S> {
         };
 
         let hwnd = unsafe {
-            CreateWindowExA(
+            CreateWindowExW(
                 ex_style,
                 class_name,
-                ptr::null(),
-                0,
+                None,
+                WINDOW_STYLE(0),
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
                 CW_USEDEFAULT,
                 match window_type {
-                    WindowType::TopLevel => ptr::null_mut(),
-                    WindowType::MessageOnly => HWND_MESSAGE,
+                    WindowType::TopLevel => None,
+                    WindowType::MessageOnly => Some(HWND_MESSAGE),
                 },
-                ptr::null_mut(),
-                get_instance_handle(),
+                None,
+                Some(get_instance_handle()),
                 // The subclass info can be passed as a pointer to the
                 // stack-allocated variable because it will only be accessed
-                // during the `CreateWindowExA()` call and not afterwards.
-                ptr::from_ref(&subclassinfo).cast(),
+                // during the `CreateWindowExW()` call and not afterwards.
+                Some(ptr::from_ref(&subclassinfo).cast()),
             )
-        };
-        if hwnd.is_null() {
-            return Err(WindowCreationError);
         }
+        .map_err(|_| WindowCreationError)?;
 
         Ok(Self {
             hwnd,
@@ -183,7 +186,7 @@ impl<S> Window<S> {
     where
         F: FnMut(Pin<&S>, WindowMessage) -> Option<LRESULT> + 'static,
     {
-        Self::new_checked_ex(window_type, 0, state, wndproc)
+        Self::new_checked_ex(window_type, WINDOW_EX_STYLE(0), state, wndproc)
     }
 
     /// Same as [`Window::new_checked()`] but allows specifying extended window
@@ -210,7 +213,7 @@ impl<S> Window<S> {
     }
 
     fn user_data(&self) -> &UserData<S, ()> {
-        unsafe { &*(GetWindowLongPtrA(self.hwnd, GWLP_USERDATA) as *const _) }
+        unsafe { &*(GetWindowLongPtrW(self.hwnd, GWLP_USERDATA) as *const _) }
     }
 
     /// Returns this window's raw window handle.
@@ -231,24 +234,24 @@ unsafe extern "system" fn wndproc_setup(
     lparam: LPARAM,
 ) -> LRESULT {
     if msg == WM_NCCREATE {
-        let create_params = lparam as *const CREATESTRUCTA;
+        let create_params = lparam.0 as *const CREATESTRUCTW;
         let subclassinfo = &*((*create_params).lpCreateParams as *const SubClassInformation);
 
         // Replace our `wndproc` with the one using the correct type.
-        SetWindowLongPtrA(hwnd, GWLP_WNDPROC, subclassinfo.wndproc as usize as _);
+        SetWindowLongPtrW(hwnd, GWLP_WNDPROC, subclassinfo.wndproc as usize as _);
 
         // Attach user data to the window so it can be accessed from the
         // `wndproc` callback function when receiving other messages.
         // https://devblogs.microsoft.com/oldnewthing/20191014-00/?p=102992
-        SetWindowLongPtrA(hwnd, GWLP_USERDATA, subclassinfo.user_data as _);
+        SetWindowLongPtrW(hwnd, GWLP_USERDATA, subclassinfo.user_data as _);
 
         // Forward this message to the freshly registered subclass wndproc.
-        SendMessageA(hwnd, msg, wparam, lparam)
+        SendMessageW(hwnd, msg, Some(wparam), Some(lparam))
     } else {
         // This code path is only reached for messages before `WM_NCCREATE`.
         // On Windows 10/11 `WM_GETMINMAXINFO` is the first and only message
         // before `WM_NCCREATE`.
-        DefWindowProcA(hwnd, msg, wparam, lparam)
+        DefWindowProcW(hwnd, msg, wparam, lparam)
     }
 }
 
@@ -264,7 +267,7 @@ where
     let user_data_ptr: NonNull<UserData<S, F>> = if mem::size_of::<UserData<S, F>>() == 0 {
         NonNull::dangling()
     } else {
-        NonNull::new_unchecked(GetWindowLongPtrA(hwnd, GWLP_USERDATA) as _)
+        NonNull::new_unchecked(GetWindowLongPtrW(hwnd, GWLP_USERDATA) as _)
     };
     let user_data = user_data_ptr.as_ref();
 
@@ -282,17 +285,17 @@ where
         // We manage the window lifetime ourselves. Prevent the default
         // handler from calling `DestroyWindow()` to keep the state
         // allocated until the window wrapper struct is dropped.
-        return 0;
+        return LRESULT(0);
     }
 
     if msg == WM_NCDESTROY {
         // This is the very last message received by this function before
         // the window is destroyed. Deallocate the window user data.
         drop(Box::from_raw(user_data_ptr.as_ptr()));
-        return 0;
+        return LRESULT(0);
     }
 
-    ret.unwrap_or_else(|| DefWindowProcA(hwnd, msg, wparam, lparam))
+    ret.unwrap_or_else(|| DefWindowProcW(hwnd, msg, wparam, lparam))
 }
 
 #[cfg(test)]
@@ -344,7 +347,9 @@ mod test {
                     // here we would get the second mutable alias
                     if w.state().try_borrow_mut().is_err() {
                         *state = true;
-                        unsafe { PostMessageA(w.hwnd(), WM_USER, 0, 0) };
+                        let _ = unsafe {
+                            PostMessageW(Some(w.hwnd()), WM_USER, WPARAM(0), LPARAM(0))
+                        };
                     }
                 }
                 None
@@ -353,7 +358,7 @@ mod test {
         });
 
         // Emulate a message from a user clicking on the window somewhere.
-        unsafe { PostMessageA(w.hwnd(), WM_USER, 0, 0) };
+        let _ = unsafe { PostMessageW(Some(w.hwnd()), WM_USER, WPARAM(0), LPARAM(0)) };
         MessageLoop::run(|msg_loop, _| {
             if *w.state().borrow() {
                 msg_loop.quit();
