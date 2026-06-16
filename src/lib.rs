@@ -9,14 +9,14 @@ use std::{
     mem::{ManuallyDrop, MaybeUninit},
     panic::{self, AssertUnwindSafe},
     pin::{pin, Pin},
-    ptr::{self, NonNull},
+    ptr::NonNull,
     task::{Context, Poll, Waker},
 };
 
 use async_task::Runnable;
 use util::{Window, WindowType};
 use windows::Win32::{
-    Foundation::{HWND, LPARAM, LRESULT, WPARAM},
+    Foundation::{LPARAM, LRESULT, WPARAM},
     UI::WindowsAndMessaging::*,
 };
 
@@ -271,14 +271,15 @@ impl MessageLoop {
 
 #[cfg(test)]
 mod test {
-    use std::{ffi::CStr, future::poll_fn};
+    use std::future::poll_fn;
 
-    use windows_sys::Win32::Foundation::HWND;
+    use windows::core::{w, PCWSTR};
+    use windows::Win32::Foundation::HWND;
 
     use super::*;
 
     fn post_thread_message(msg: u32) {
-        unsafe { PostMessageA(ptr::null_mut(), msg, 0, 0) };
+        let _ = unsafe { PostMessageW(None, msg, WPARAM(0), LPARAM(0)) };
     }
 
     #[test]
@@ -388,19 +389,19 @@ mod test {
         });
     }
 
-    fn window_by_name(name: &CStr) -> HWND {
-        unsafe { FindWindowA(ptr::null_mut(), name.as_ptr() as _) }
+    fn window_by_name(name: PCWSTR) -> HWND {
+        unsafe { FindWindowW(None, name) }.unwrap_or_default()
     }
 
     #[test]
     fn running_spawned_with_modal_dialog() {
         // The window name must be unique for each test because cargo runs tests
         // in parallel and we do not want to close the window of another test.
-        let window_name = c"running_spawned_with_modal_dialog";
+        let window_name = w!("running_spawned_with_modal_dialog");
 
-        let task = spawn_local(async {
+        let task = spawn_local(async move {
             // Wait for modal window to be open.
-            while window_by_name(window_name).is_null() {
+            while window_by_name(window_name).0.is_null() {
                 yield_now().await;
             }
 
@@ -411,17 +412,17 @@ mod test {
 
             // Close the modal window.
             unsafe {
-                SendMessageA(window_by_name(window_name), WM_CLOSE, 0, 0);
+                SendMessageW(window_by_name(window_name), WM_CLOSE, Some(WPARAM(0)), Some(LPARAM(0)));
             }
         });
 
         block_on(async {
             unsafe {
-                MessageBoxA(
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                    window_name.as_ptr() as _,
-                    0,
+                MessageBoxW(
+                    None,
+                    PCWSTR::null(),
+                    window_name,
+                    MESSAGEBOX_STYLE(0),
                 );
             }
             task.await;
@@ -436,7 +437,7 @@ mod test {
     fn reenter_filter_closure_panic() {
         // The window name must be unique for each test because cargo runs tests
         // in parallel and we do not want to close the window of another test.
-        let window_name = c"reenter_filter_closure";
+        let window_name = w!("reenter_filter_closure");
 
         post_thread_message(WM_USER);
 
@@ -447,13 +448,13 @@ mod test {
                 "Filter closure reentered"
             );
 
-            if msg.hwnd.is_null() && msg.message == WM_USER {
+            if msg.hwnd.0.is_null() && msg.message == WM_USER {
                 unsafe {
-                    MessageBoxA(
-                        ptr::null_mut(),
-                        ptr::null_mut(),
-                        window_name.as_ptr() as _,
-                        0,
+                    MessageBoxW(
+                        None,
+                        PCWSTR::null(),
+                        window_name,
+                        MESSAGEBOX_STYLE(0),
                     );
                 }
             }
@@ -467,7 +468,7 @@ mod test {
     fn reenter_filter_closure_quit() {
         // The window name must be unique for each test because cargo runs tests
         // in parallel and we do not want to close the window of another test.
-        let window_name = c"reenter_filter_closure";
+        let window_name = w!("reenter_filter_closure");
 
         post_thread_message(WM_USER);
 
@@ -477,13 +478,13 @@ mod test {
                 msg_loop.quit();
             }
 
-            if msg.hwnd.is_null() && msg.message == WM_USER {
+            if msg.hwnd.0.is_null() && msg.message == WM_USER {
                 unsafe {
-                    MessageBoxA(
-                        ptr::null_mut(),
-                        ptr::null_mut(),
-                        window_name.as_ptr() as _,
-                        0,
+                    MessageBoxW(
+                        None,
+                        PCWSTR::null(),
+                        window_name,
+                        MESSAGEBOX_STYLE(0),
                     );
                 }
             }
@@ -497,22 +498,22 @@ mod test {
     fn message_loop_with_modal_dialog() {
         // The window name must be unique for each test because cargo runs tests
         // in parallel and we do not want to close the window of another test.
-        let window_name = c"message_loop_with_modal_dialog";
+        let window_name = w!("message_loop_with_modal_dialog");
 
-        spawn_local(async {
+        spawn_local(async move {
             unsafe {
-                MessageBoxA(
-                    ptr::null_mut(),
-                    ptr::null_mut(),
-                    window_name.as_ptr() as _,
-                    0,
+                MessageBoxW(
+                    None,
+                    PCWSTR::null(),
+                    window_name,
+                    MESSAGEBOX_STYLE(0),
                 );
             }
         });
 
-        spawn_local(async {
+        spawn_local(async move {
             // Check if modal window is actually open.
-            assert!(!window_by_name(window_name).is_null());
+            assert!(!window_by_name(window_name).0.is_null());
 
             for i in 0..10 {
                 post_thread_message(WM_USER + i);
@@ -520,12 +521,12 @@ mod test {
             }
 
             // Close modal window again.
-            unsafe { SendMessageA(window_by_name(window_name), WM_CLOSE, 0, 0) };
+            unsafe { SendMessageW(window_by_name(window_name), WM_CLOSE, Some(WPARAM(0)), Some(LPARAM(0))) };
         });
 
         let expected_msg = Cell::new(0);
         MessageLoop::run(|msg_loop, msg| {
-            if msg.hwnd.is_null() && msg.message >= WM_USER {
+            if msg.hwnd.0.is_null() && msg.message >= WM_USER {
                 assert_eq!(msg.message, WM_USER + expected_msg.get());
                 expected_msg.set(expected_msg.get() + 1);
                 msg_loop.quit_when_idle();
@@ -541,7 +542,7 @@ mod test {
     fn reenter_filter_closure_quit_when_idle() {
         // The window name must be unique for each test because cargo runs tests
         // in parallel and we do not want to close the window of another test.
-        let window_name = c"reenter_filter_closure";
+        let window_name = w!("reenter_filter_closure");
 
         post_thread_message(WM_USER);
 
@@ -551,13 +552,13 @@ mod test {
                 msg_loop.quit_when_idle();
             }
 
-            if msg.hwnd.is_null() && msg.message == WM_USER {
+            if msg.hwnd.0.is_null() && msg.message == WM_USER {
                 unsafe {
-                    MessageBoxA(
-                        ptr::null_mut(),
-                        ptr::null_mut(),
-                        window_name.as_ptr() as _,
-                        0,
+                    MessageBoxW(
+                        None,
+                        PCWSTR::null(),
+                        window_name,
+                        MESSAGEBOX_STYLE(0),
                     );
                 }
             }
@@ -579,7 +580,7 @@ mod test {
         })
         .unwrap();
         unsafe {
-            PostMessageA(custom_wnd.hwnd(), MSG_ID_WAKE, 0, 0);
+            let _ = PostMessageW(Some(custom_wnd.hwnd()), MSG_ID_WAKE, WPARAM(0), LPARAM(0));
         }
 
         // Spawn a task to ensure that the executor window also has a wake message,
