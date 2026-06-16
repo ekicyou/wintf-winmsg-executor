@@ -12,7 +12,7 @@
   - _Requirements: 1.1, 1.2, 1.3_
   - _Boundary: Cargo.toml_
 
-- [ ] 2. Win32 ヘルパー層の移行
+- [x] 2. Win32 ヘルパー層の移行
 - [x] 2.1 (P) ウィンドウ生成補助と公開型の移行
   - ウィンドウ生成・破棄の RAII、ウィンドウプロシージャ補助、および公開型を `windows` newtype・W 系 API・`Result` へ移行する
   - NULL を取り得るハンドル引数を `windows` のハンドル型表現（`Option`/`Default`）で表し、固定文字列を W 系文字列マクロで表す
@@ -30,7 +30,7 @@
   - _Boundary: util/msg_filter_hook.rs_
   - _Depends: 1_
 
-- [ ] 3. executor コアの移行
+- [x] 3. executor コアの移行
 - [x] 3.1 メッセージループと spawn・wake の移行
   - executor ウィンドウ・メッセージループ・タスク spawn・wake 投函を `windows` newtype・W 系 API へ移行する
   - schedule クロージャがウィンドウハンドルをキャプチャする箇所から着手し、`Send`/`Sync` 境界エラーが出ないことを `cargo check` で確認する（万一出た場合はハンドルを `Send` 可能な表現へ退避するラッパーを検討する）
@@ -48,7 +48,7 @@
   - _Boundary: lib.rs_
   - _Depends: 3.1_
 
-- [ ] 4. 統合検証
+- [x] 4. 統合検証
 - [x] 4.1 ビルド・テスト・ドキュメント・examples の全通過確認
   - クレート全体に `windows_sys` 参照が一切残っていないことを確認する
   - ビルド・全テスト実行・ドキュメント生成、および両 example のビルドがすべてエラーなく完了する

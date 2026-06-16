@@ -2,19 +2,19 @@
 
 ## Architecture
 
-スレッドごとの非同期 executor。中核は thread-local な executor 用 message-only window と、その上で回るネイティブ Windows メッセージループです。`async-task` がランタイムの足回り（`Runnable` / `Task`）を担い、future が wake されると `PostMessageA` で `MSG_ID_WAKE`（`WM_USER`）が executor ウィンドウに投函され、ウィンドウプロシージャが `Runnable::run()` を呼んで future をポーリングします。Waker は HWND をキャプチャしたクロージャとして実装されます。
+スレッドごとの非同期 executor。中核は thread-local な executor 用 message-only window と、その上で回るネイティブ Windows メッセージループです。`async-task` がランタイムの足回り（`Runnable` / `Task`）を担い、future が wake されると `PostMessageW` で `MSG_ID_WAKE`（`WM_USER`）が executor ウィンドウに投函され、ウィンドウプロシージャが `Runnable::run()` を呼んで future をポーリングします。Waker は HWND をキャプチャしたクロージャとして実装されます。
 
 ## Core Technologies
 
 - **Language**: Rust (edition 2021)
 - **Platform**: Windows 専用（Win32 API への FFI）
 - **Async runtime primitive**: `async-task`（`default-features = false`）
-- **Win32 bindings**: `windows-sys`（`Win32_Foundation` / `Win32_Graphics_Gdi` / `Win32_System_Threading` / `Win32_UI_WindowsAndMessaging`）
+- **Win32 bindings**: `windows` 0.62（`Win32_Foundation` / `Win32_Graphics_Gdi` / `Win32_System_Threading` / `Win32_UI_WindowsAndMessaging`）
 
 ## Key Libraries
 
 - `async-task`: `spawn_unchecked` による `Runnable` / `Task` の生成。スケジューラはメッセージ投函クロージャ。
-- `windows-sys`: 生の Win32 API（`CreateWindowExA`、`GetMessageA`、`SetWindowsHookExA` など）を直接呼ぶ。高水準ラッパは使わない。
+- `windows` 0.62: 生の Win32 API を W 系（Unicode）で直接呼ぶ（`CreateWindowExW`、`GetMessageW`、`SetWindowsHookExW` など）。ハンドル等は newtype（`HWND`/`WPARAM` 等）、失敗し得る API は `Result`。高水準ラッパは使わない。
 
 ## Development Standards
 
@@ -61,4 +61,4 @@
 
 ---
 _Document standards and patterns, not every dependency_
-_updated_at: 2026-06-16 — windows-rs 公式リポジトリ（release 73 / create_window サンプル）への参照を追記_
+_updated_at: 2026-06-16 — windows 0.62 への移行を反映（依存名・W系 API・import 例を更新）_
