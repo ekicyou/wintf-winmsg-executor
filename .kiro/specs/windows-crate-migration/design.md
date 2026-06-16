@@ -158,7 +158,7 @@ graph TB
 **Implementation Notes**
 - Integration: クラス名は `w!("wintf-winmsg-executor")`（PCWSTR）。`WNDCLASSW`（`std::mem::zeroed()` 維持可）。
 - Validation: `create_destroy_messages`/`reenter_state` テストがパスすること（2.2）。
-- Risks: 公開型変更は SemVer 破壊（6.1、文書化）。`WindowMessage`/`Window::hwnd()` を利用する下流が再検証対象（Revalidation Trigger）。
+- Risks: 公開型変更は SemVer 破壊（6.1）。`WindowMessage`/`Window::hwnd()` を利用する下流が再検証対象（Revalidation Trigger）。**文書化先は `Window`/`WindowMessage` の doc comment** とし、型が `windows` newtype へ変わった旨を記載する（rustdoc に残り、6.2 の steering/README 最小改訂と両立）。
 
 #### util/msg_filter_hook.rs
 | Field | Detail |
@@ -198,7 +198,7 @@ graph TB
 
 **Implementation Notes**
 - Integration: テストの `FindWindowA`/`MessageBoxA`/`SendMessageA`/`PostMessageA`/`c"…"` を `*W`/`w!` へ。`FindWindowW` は `Result<HWND>` ゆえ `.unwrap_or_default()` 等で `is_null()` 判定を維持。
-- Validation（5.1）: `spawn_unchecked_lifetime` の schedule クロージャが `HWND`（`!Send`）をキャプチャしてもコンパイルできることを**移行の最初のタスクで検証**する。`async_task::spawn_unchecked` は schedule に `Send` を要求しないため成功見込み。
+- Validation（5.1）: `spawn_unchecked_lifetime` の schedule クロージャが `HWND`（`!Send`）をキャプチャしてもコンパイルできることを、**lib.rs 移行時に spawn 部から着手して `cargo check` で検証**する（専用プローブは設けない）。`async_task::spawn_unchecked` は schedule に `Send` を要求しないため成功見込み。
 - Risks（5.2）: 万一 `Send` 境界エラーが出た場合は、`HWND` を `isize` へ退避する `Send` ラッパー導入を後続検討（本設計では投機的に実装しない）。
 
 ## Error Handling
@@ -225,6 +225,8 @@ graph TB
 - `lib.rs`: `message_loop_quit`/`quit_when_idle`、`nested_block_on`、`reenter_filter_closure_*`、`disallow_wake_message_filtering`（wake ガード = 2.4）。
 - `lib.rs` モーダル系: `running_spawned_with_modal_dialog`、`message_loop_with_modal_dialog`（`WH_MSGFILTER` 経由の継続実行）。
 
+> **W系移行の検証根拠（4.1, 4.4）**: `running_spawned_with_modal_dialog`・`message_loop_with_modal_dialog` は `FindWindowW` でウィンドウ名を実照合するため、`w!` による PCWSTR の構築・伝達が誤っていれば window 不検出でテスト失敗する。これにより W系化の正しさは既存テストで実質的に担保され、新規テストは不要。
+
 ### Build / Doc Verification（3.x）
 - `cargo build`、`cargo test`（全パス）、`cargo doc`（エラーなし）。
 - `cargo build --example basic` / `--example threads`（3.4、ソース改変なしでビルド成功）。
@@ -238,18 +240,17 @@ graph TB
 
 ```mermaid
 graph LR
-    T0[5.1 HWND capture probe] --> T1[Cargo.toml deps]
-    T1 --> T2[util window.rs]
+    T1[Cargo.toml deps] --> T2[util window.rs]
     T1 --> T3[util msg_filter_hook.rs]
-    T2 --> T4[lib.rs core]
+    T2 --> T4[lib.rs core spawn check first]
     T3 --> T4
     T4 --> T5[tests migration]
     T5 --> T6[cargo build test doc + examples]
 ```
 
-- **Phase 0（5.1 検証先行）**: 依存を `windows` へ差し替えた状態で、`HWND` キャプチャがコンパイル可能かを最小変更で確認（Send ラッパー要否の確定）。
-- **Phase 1–4**: `Cargo.toml` → `util/*` → `lib.rs` → テストの順に置換。依存差し替え直後は全体がコンパイルエラー状態になりうる（中間ビルド緑を保証しない）が、最終的な緑を目標とする。
-- **Rollback トリガ**: Phase 0 で `Send` 境界エラーが顕在化した場合のみ、`Send` ラッパー設計を追加（Option B）。それ以外は設計変更不要。
+- **実装順序による自然検証（5.1）**: 専用のプローブ（独立テスト/example）は設けない（karpathy: 投機的コードを避ける、7.x）。`Cargo.toml` → `util/*` → `lib.rs` の順で進め、**lib.rs 移行時に `spawn_unchecked_lifetime`（`HWND` キャプチャ箇所）から着手して `cargo check`** し、`Send` 境界エラーの有無を確定する。`HWND` 型は移行で不変ゆえ、万一エラーが出ても `util/*` の移行はやり直し不要。
+- **Phase 構成**: 依存差し替え直後は全体がコンパイルエラー状態になりうる（中間ビルド緑を保証しない）が、最終的な緑を目標とする。
+- **Rollback トリガ**: lib.rs の spawn 検証で `Send` 境界エラーが顕在化した場合のみ、`Send` ラッパー（`HWND`→`isize` 退避）を追加（Option B）。それ以外は設計変更不要。
 - **Validation checkpoint**: 最終フェーズで `cargo build`/`test`/`doc` + examples ビルドが全通過（3.x）。
 
 > karpathy-guidelines（7.x）: 各フェーズは型・API 置換に限定し、隣接コードのリファクタ・コメント増設を行わない。`?`/`.into()`/RAII で意味論を変えずに行数を抑える。
