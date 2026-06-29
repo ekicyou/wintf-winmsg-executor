@@ -10,9 +10,12 @@ use std::{
 use windows::core::w;
 use windows::Win32::{Foundation::*, UI::WindowsAndMessaging::*};
 
+/// Returns the [`HINSTANCE`] of the module that contains the calling code.
+///
+/// Unlike `GetModuleHandleW(None)`, this also works correctly inside DLLs.
 // Taken from:
 // https://github.com/rust-windowing/winit/blob/v0.30.0/src/platform_impl/windows/util.rs#L140
-fn get_instance_handle() -> HINSTANCE {
+pub fn get_instance_handle() -> HINSTANCE {
     // Gets the instance handle by taking the address of the
     // pseudo-variable created by the Microsoft linker:
     // https://devblogs.microsoft.com/oldnewthing/20041025-00/?p=37483
