@@ -134,8 +134,10 @@ impl<S> Window<S> {
         static CLASS_REGISTRATION: Once = Once::new();
         CLASS_REGISTRATION.call_once(|| {
             let mut wnd_class: WNDCLASSW = unsafe { std::mem::zeroed() };
+            wnd_class.style = CS_DBLCLKS;
             wnd_class.lpfnWndProc = Some(wndproc_setup);
             wnd_class.hInstance = get_instance_handle();
+            wnd_class.hCursor = unsafe { LoadCursorW(None, IDC_ARROW) }.unwrap_or_default();
             wnd_class.lpszClassName = class_name;
             unsafe { RegisterClassW(&wnd_class) };
         });
