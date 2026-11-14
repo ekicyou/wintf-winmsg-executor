@@ -1,5 +1,8 @@
 # `wintf-winmsg-executor`
 
+> **移転しました / Moved**: このクレートは [areka](https://github.com/ekicyou/areka) の `crates/wintf-winmsg-executor/` へ移りました。以後の版は areka から crates.io へ出します。このリポジトリは読み取り専用（archive）です。
+> This crate now lives in `crates/wintf-winmsg-executor/` of https://github.com/ekicyou/areka; new versions are published from there. This repository is archived.
+
 [![Crates.io](https://img.shields.io/crates/v/wintf-winmsg-executor)](https://crates.io/crates/wintf-winmsg-executor)
 ![Crates.io License](https://img.shields.io/crates/l/wintf-winmsg-executor)
 [![docs.rs](https://img.shields.io/docsrs/wintf-winmsg-executor)](https://docs.rs/wintf-winmsg-executor)
